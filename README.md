@@ -33,8 +33,8 @@ This command initializes a 50x50 landscape with 10 agents and randomizes the res
 
 1. **Clone the repository**:
     ```bash
-    git clone <repository-url>
-    cd <repository-directory>
+    git clone https://github.com/Iain-Crowe/artificial-society-simulation.git
+    cd artificial-society-simulation
     ```
 
 2. **Run the simulation**:
