@@ -2,13 +2,17 @@
 # Copyright (c) 2024 Iain Crowe <iainccrowe@gmail.com>
 
 import argparse
+import cProfile
+import concurrent.futures
 import platform
 import random
 import sys
 import time
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
-from object_models import Landscape
+from components import Agent, Landscape
+from components import init_agents
+from plot import plot_population_totals
 
 # Color map for landscape printing
 # This map supports values up to 9, which should be good for any map up to
@@ -47,8 +51,8 @@ def main():
         "--time",
         "-T",
         type=int,
-        default=10,
-        help="Number of cycles to run the simulation at.",
+        default=500,
+        help="Number of cycles to run the simulation for.",
     )
     parser.add_argument(
         "--max_width",
@@ -65,7 +69,7 @@ def main():
         help="Determines the max height for both the landscape and capacity function.",
     )
     parser.add_argument(
-        "--agents", "-A", type=int, default=50, help="Number of agents to simulate."
+        "--agents", "-A", type=int, default=250, help="Number of agents to simulate."
     )
     parser.add_argument(
         "--randomize",
@@ -81,10 +85,10 @@ def main():
         help="Time between updates in simulation, for readability purposes.",
     )
     parser.add_argument(
-        "--display_values",
+        "--display",
         "-V",
         action="store_true",
-        help="Display the resource levels on each tile when printing the landscape map.",
+        help="Display the resource map at each step in simulation.",
     )
 
     args = parser.parse_args()
@@ -100,33 +104,86 @@ def main():
             "theta_x": random.uniform(0.1, 0.5),
             "theta_y": random.uniform(0.1, 0.5),
         }
+    else:
+        capacity_function_args = {"bounds": (args.max_width, args.max_height)}
 
     display = args.display_values
 
     landscape = Landscape(
         size=(args.max_width, args.max_height),
-        num_agents=args.agents,
         **capacity_function_args,
     )
 
+    agents: List[Agent] = init_agents(landscape, args.agents)
+
+    population_totals = []
+
     print("Initial Map:")
-    print_landscape(landscape, display)
+    print_landscape(landscape, len(agents))
 
-    for t in range(args.time):
-        landscape.move_agents()
+    for i in range(1, args.time + 1):
+        random.shuffle(agents)
+
+        # Move and reproduce agents
+        new_agents = simulate_step(agents)
+
+        # Regrow landscape
         landscape.regrowth()
-        print_landscape(landscape, display, (t + 1, args.time))
+        landscape.time += 1
 
-        if len(landscape.agents) == 0:
-            print(f"\nAll agents died at time: {t}")
+        # Update agent list
+        agents = new_agents
+        population_totals.append(len(agents))
 
-        time.sleep(args.sleep_time)
+        if display:
+            print_landscape(landscape, len(agents), (i, args.time))
+            time.sleep(args.sleep_time)
+        print(
+            f"Current Population at ({i} of {args.time}): {len(agents)}",
+            end="\r",
+        )
 
-    print(f"\nSurvivors: {len(landscape.agents)} out of {landscape.starting_agents}")
+        if len(agents) <= 0:
+            print("\nAll agents have died.")
+            break
+
+    print_landscape(landscape, len(agents))
+    plot_population_totals(population_totals)
+
+
+def simulate_step(agents: List[Agent]) -> List[Agent]:
+    """
+    Multithreaded call to update all agents.
+
+    Args:
+        agents (List[Agent]): List of currently alive agents.
+
+    Returns:
+        List[Agent]: New list of agents after update sequence has completed.
+    """
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(lambda agent: agent.update(), agents))
+
+    alive_agents: List[Agent] = []
+    offspring: List[Agent] = []
+    for idx, (alive, child) in enumerate(results):
+        if alive:
+            alive_agents.append(agents[idx])
+        if child:
+            offspring.append(child)
+
+    alive_agents.extend(offspring)
+
+    for agent in alive_agents:
+        agent.can_reproduce = True
+
+    return alive_agents
 
 
 def print_landscape(
-    landscape: Landscape, display_tag: bool, t: Optional[Tuple[int, int]] = None
+    landscape: Landscape,
+    num_agents: int,
+    t: Optional[Tuple[int, int]] = None,
 ) -> None:
     """
     Prints the current state of the landscape.
@@ -140,7 +197,7 @@ def print_landscape(
     print(CURSOR_UP_LEFT, end="")
 
     string = f" {t[0]}/{t[1]}" if t else ""
-    w = landscape.X * 2
+    w = landscape.Y * 2
 
     print("=" * w)
     print(f"\033[97;1mLandscape Map{string}:{RESET}")
@@ -155,16 +212,15 @@ def print_landscape(
     for X in landscape.cells:
         for cell in X:
             val = cell.resource_level
-            s = val if display_tag else " "
-            if cell.occupancy:
-                print(f"{AGENT}{s} {RESET}", end="")
+            s = "  "
+            if isinstance(cell.occupancy, Agent):
+                print(f"{AGENT}{s}{RESET}", end="")
             else:
-
-                print(f"{COLOR_MAP[val]}{s} {RESET}", end="")
+                print(f"{COLOR_MAP[val]}{s}{RESET}", end="")
         print()
     print("=" * w)
     # Print number of agents on map
-    print(f"Agents: {len(landscape.agents)}")
+    print(f"Agents: {num_agents}")
     print("=" * w)
 
     sys.stdout.flush()

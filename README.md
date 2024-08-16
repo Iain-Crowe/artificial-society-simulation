@@ -1,12 +1,14 @@
 
 # Landscape Simulation Project
 
-This project simulates a landscape with agents that move, consume resources, and interact with their environment. The simulation includes a landscape with resources that regrow over time and agents that move based on the available resources.
+This project simulates a landscape with agents that move, consume resources, and reproduce. The simulation includes a landscape with resources that regrow over time and agents that move based on the available resources.
 
 ## Project Structure
 
 - **capacity_models.py**: Contains the functions and models related to resource capacity calculation, including Gaussian distributions.
-- **object_models.py**: Defines the core classes used in the simulation, including `Landscape`, `Cell`, and `Agent`.
+- **components**: Module containing the core classes used in the simulation, including `Landscape`, `Cell`, and `Agent`.
+    - **landscape.py**: Contains classes for `Landscape` and `Cell`.
+    - **agent.py** Contains the class for `Agent` as well as a function to initialize a number of Agents.
 - **simulate.py**: The main script that runs the simulation. It includes a CLI interface to customize the simulation parameters.
 
 ## Usage
@@ -15,11 +17,13 @@ You can run the simulation by executing the `simulate.py` script with various co
 
 ### CLI Arguments
 
-- `--max_width <int>`: Determines the maximum width for both the landscape and capacity function. Default is 50.
-- `--max_height <int>`: Determines the maximum height for the landscape and capacity function. Default is 50.
-- `--agents <int>`: Number of agents to simulate. Required.
-- `--randomize`: If this flag is set, the landscape will be initialized with randomized arguments for the capacity function.
-- `--sleep_time <float>`: Time in seconds to sleep between cycles. Default is 1.0 seconds.
+- `--time <int>` or `-T`: Number of cycles to run the simulation for. Default is 500.
+- `--max_width <int>` or `-X`: Determines the maximum width for both the landscape and capacity function. Default is 50.
+- `--max_height <int>` or `-Y`: Determines the maximum height for the landscape and capacity function. Default is 50.
+- `--agents <int>` or `-A`: Number of agents to simulate. Default is 250.
+- `--randomize` or `-R`: If this flag is set, the landscape will be initialized with randomized arguments for the capacity function.
+- `--sleep_time <float>` or `-S`: Time in seconds to sleep between cycles. Default is 1.0 seconds.
+- `--display` or `-D`: Display the resource map at each step in simulation. 
 
 ### Example Command
 
@@ -37,9 +41,16 @@ This command initializes a 50x50 landscape with 10 agents and randomizes the res
     cd artificial-society-simulation
     ```
 
-2. **Run the simulation**:
+2. **Setup virtual environment and install dependencies**:
     ```bash
-    python simulate.py
+    python3 -m venv venv
+    source venv/bin/activate    # 'venv\Scripts\activate' on Windows
+    pip install -r requirements
+    ```
+
+3. **Run the simulation**:
+    ```bash
+    python simulate.py <args>
     ```
 
 ## License
