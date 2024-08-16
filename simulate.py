@@ -107,7 +107,7 @@ def main():
     else:
         capacity_function_args = {"bounds": (args.max_width, args.max_height)}
 
-    display = args.display_values
+    display = args.display
 
     landscape = Landscape(
         size=(args.max_width, args.max_height),
